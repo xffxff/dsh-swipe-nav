@@ -2,13 +2,13 @@
 
 Swipe navigation for the DeepSeek Harness (dsh) Web GUI on phones and tablets.
 
-- **Swipe right starting near the left edge** (first 44 px) → open the left
-  navigation drawer (session list).
-- **Swipe right anywhere else** → open the right sidebar (the tools column). On a
-  phone it opens fullscreen over the conversation, showing its “开始” guide with
-  工作区文件 / 新建终端 / 更多工具 when no tab is open.
-- **Swipe left** → close it and return to the chat. When the left navigation
-  drawer is what is open instead, the same swipe closes that.
+- **Swipe right starting at the left edge** (first 56 px) → open the left
+  navigation drawer (session list). This needs an installed/standalone app.
+- **Swipe left starting at the right edge** (last 56 px) → open the right sidebar
+  (the tools column). On a phone it opens fullscreen over the conversation,
+  showing its “开始” guide with 工作区文件 / 新建终端 / 更多工具 when no tab is open.
+- **Swipe the other way anywhere** → close whichever panel is open.
+- **Horizontal swipes in the middle of the screen** are left to the content.
 
 The gesture only reacts below 1024 px viewport width, ignores text fields,
 horizontally scrolling blocks (code, tables), vertical scrolls, short taps, and
@@ -73,12 +73,14 @@ and no `prepare` script. It is hand-written in the same
 
 ## Notes
 
-- iOS Safari treats a swipe that starts in the first ~20 px as its own back
-  gesture, and a page cannot cancel that. The edge band is therefore 44 px wide:
-  start around 25–40 px to reach the navigation drawer reliably on an iPhone.
+- In a Safari tab, the left edge belongs to the browser's back gesture, so the
+  left-edge gesture only runs in standalone (`navigator.standalone` or
+  `display-mode: standalone`). The right edge keeps working there.
+- Android gesture navigation reserves both edges for the system back action, so
+  edge gestures can be swallowed outside an installed app.
 - The edge band, distances, and timing thresholds sit at the top of
-  `lib/client.js` (`EDGE_START_MAX`, `MIN_HORIZONTAL`, `MAX_VERTICAL`,
-  `MAX_DURATION_MS`); the direction mapping is in `onTouchEnd`.
+  `lib/client.js` (`EDGE_BAND_MAX`, `MIN_HORIZONTAL`, `MAX_VERTICAL`,
+  `MAX_DURATION_MS`); the zone logic is in `edgeZone` / `onTouchEnd`.
 
 ## Test
 

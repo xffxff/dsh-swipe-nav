@@ -1,5 +1,5 @@
 // Offline harness for lib/client.js: runs the browser bundle against a tiny
-// fake DOM and checks the gesture rules without a browser.
+// fake DOM and checks the edge-gesture rules without a browser.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -8,6 +8,8 @@ import vm from 'node:vm'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const source = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8')
+
+const WIDTH = 390
 
 class FakeEl {
   constructor(attrs = [], options = {}) {
@@ -26,7 +28,7 @@ class FakeEl {
   }
 }
 
-function createEnvironment({ width = 390, drawer = true, drawerCollapsed = true } = {}) {
+function createEnvironment({ width = WIDTH, standalone = true, drawer = true, drawerCollapsed = true } = {}) {
   const listeners = new Map()
   const frameAttrs = []
   if (drawer) frameAttrs.push('data-sidebar-drawer')
@@ -55,6 +57,8 @@ function createEnvironment({ width = 390, drawer = true, drawerCollapsed = true 
   let row
   const window = {
     innerWidth: width,
+    navigator: { standalone },
+    matchMedia: () => ({ matches: false }),
     __ModuleLoader__: {
       load(value) {
         row = value
@@ -116,69 +120,73 @@ function swipe(env, from, to, target) {
   env.fire('touchend', null, to)
 }
 
+const LEFT_EDGE = { x: 10 }
+const RIGHT_EDGE = { x: 370 }
+const MIDDLE = { x: 200 }
+
 // Bundle shape.
 const env = createEnvironment()
 assert.equal(env.row.id, 'dsh-plugin-swipe-nav')
 assert.ok(Array.isArray(env.ctx.disposers))
 
-// Right swipe from the middle opens the tools column.
-swipe(env, { x: 120, y: 600 }, { x: 280, y: 610 })
-assert.equal(env.ctx.sidebarRight.toggles, 1, 'swipe right should open the right sidebar')
+// Right edge, swipe left: open the tools column.
+swipe(env, { ...RIGHT_EDGE, y: 600 }, { x: 250, y: 605 })
+assert.equal(env.ctx.sidebarRight.toggles, 1, 'right-edge left swipe should open the tools column')
 assert.equal(env.ctx.sidebarRight.expanded, true)
 assert.equal(env.ctx.layout.toggles, 0)
 
-// Right swipe while it is open does nothing.
-swipe(env, { x: 120, y: 600 }, { x: 280, y: 610 })
-assert.equal(env.ctx.sidebarRight.toggles, 1, 'swipe right while open should be ignored')
-
-// Right swipe from the left edge opens the navigation drawer instead.
-const edge = createEnvironment()
-swipe(edge, { x: 10, y: 600 }, { x: 200, y: 600 })
-assert.equal(edge.ctx.layout.toggles, 1, 'edge swipe right should open the nav drawer')
-assert.equal(edge.ctx.sidebarRight.toggles, 0)
-
-// An edge swipe does nothing while the nav drawer is already open.
-const edgeOpen = createEnvironment({ drawerCollapsed: false })
-swipe(edgeOpen, { x: 10, y: 600 }, { x: 200, y: 600 })
-assert.equal(edgeOpen.ctx.layout.toggles, 0, 'edge swipe with the drawer open should be ignored')
-
-// An edge swipe does not stack on top of the open tools column.
-const edgeTools = createEnvironment()
-edgeTools.ctx.sidebarRight.expanded = true
-swipe(edgeTools, { x: 10, y: 600 }, { x: 200, y: 600 })
-assert.equal(edgeTools.ctx.layout.toggles, 0, 'edge swipe with tools open should be ignored')
-
-// Left swipe closes it.
-swipe(env, { x: 260, y: 600 }, { x: 100, y: 605 })
-assert.equal(env.ctx.sidebarRight.toggles, 2, 'swipe left should close the right sidebar')
+// Open tools column: any rightward swipe closes it, even from the middle.
+swipe(env, { ...MIDDLE, y: 600 }, { x: 300, y: 605 })
+assert.equal(env.ctx.sidebarRight.toggles, 2, 'rightward swipe should close the tools column')
 assert.equal(env.ctx.sidebarRight.expanded, false)
 
-// Left swipe with everything closed does nothing.
-swipe(env, { x: 260, y: 600 }, { x: 100, y: 605 })
-assert.equal(env.ctx.sidebarRight.toggles, 2)
-assert.equal(env.ctx.layout.toggles, 0)
+// Middle swipes never open anything.
+swipe(env, { ...MIDDLE, y: 600 }, { x: 330, y: 600 })
+swipe(env, { ...MIDDLE, y: 600 }, { x: 60, y: 600 })
+assert.equal(env.ctx.sidebarRight.toggles, 2, 'middle swipes must not open the tools column')
+assert.equal(env.ctx.layout.toggles, 0, 'middle swipes must not open the nav drawer')
 
-// Left swipe also closes the left navigation drawer when that is what is open.
-const drawerEnv = createEnvironment({ drawerCollapsed: false })
-swipe(drawerEnv, { x: 260, y: 600 }, { x: 100, y: 605 })
-assert.equal(drawerEnv.ctx.layout.toggles, 1, 'swipe left should close an open nav drawer')
+// Left edge, swipe right, installed app: open the navigation drawer.
+swipe(env, { ...LEFT_EDGE, y: 600 }, { x: 180, y: 600 })
+assert.equal(env.ctx.layout.toggles, 1, 'left-edge right swipe should open the nav drawer')
+assert.equal(env.ctx.sidebarRight.toggles, 2)
+
+// Left edge in a Safari tab: the browser owns that edge, so nothing happens.
+const safari = createEnvironment({ standalone: false })
+swipe(safari, { ...LEFT_EDGE, y: 600 }, { x: 180, y: 600 })
+assert.equal(safari.ctx.layout.toggles, 0, 'left-edge gesture must be off outside standalone')
+
+// Right edge still works in a Safari tab.
+swipe(safari, { ...RIGHT_EDGE, y: 600 }, { x: 250, y: 600 })
+assert.equal(safari.ctx.sidebarRight.toggles, 1, 'right-edge gesture stays available in Safari')
+
+// Open nav drawer: any leftward swipe closes it.
+const navOpen = createEnvironment({ drawerCollapsed: false })
+swipe(navOpen, { ...MIDDLE, y: 600 }, { x: 80, y: 600 })
+assert.equal(navOpen.ctx.layout.toggles, 1, 'leftward swipe should close the open nav drawer')
+
+// Open nav drawer: a rightward edge swipe does not stack the tools column.
+const navOpen2 = createEnvironment({ drawerCollapsed: false })
+swipe(navOpen2, { ...LEFT_EDGE, y: 600 }, { x: 180, y: 600 })
+assert.equal(navOpen2.ctx.layout.toggles, 0, 'open drawer ignores the opening swipe')
+assert.equal(navOpen2.ctx.sidebarRight.toggles, 0)
 
 // Vertical scroll is not a swipe.
 const vertical = createEnvironment()
-swipe(vertical, { x: 200, y: 500 }, { x: 230, y: 650 })
+swipe(vertical, { ...RIGHT_EDGE, y: 500 }, { x: 330, y: 650 })
 assert.equal(vertical.ctx.sidebarRight.toggles, 0, 'vertical scroll should be ignored')
 
 // Short drags are not swipes.
 const short = createEnvironment()
-swipe(short, { x: 200, y: 500 }, { x: 230, y: 500 })
+swipe(short, { ...RIGHT_EDGE, y: 500 }, { x: 345, y: 500 })
 assert.equal(short.ctx.sidebarRight.toggles, 0, 'short drags should be ignored')
 
 // Text fields keep their own gestures (cursor movement, selection).
 const textField = createEnvironment()
 swipe(
   textField,
-  { x: 40, y: 600 },
-  { x: 220, y: 600 },
+  { x: 370, y: 600 },
+  { x: 250, y: 600 },
   new FakeEl([], { closestResult: {} }),
 )
 assert.equal(textField.ctx.sidebarRight.toggles, 0, 'text field swipes should be ignored')
@@ -187,21 +195,22 @@ assert.equal(textField.ctx.sidebarRight.toggles, 0, 'text field swipes should be
 const maskEnv = createEnvironment({ drawerCollapsed: false })
 swipe(
   maskEnv,
-  { x: 300, y: 600 },
-  { x: 120, y: 600 },
+  { x: 380, y: 600 },
+  { x: 200, y: 600 },
   new FakeEl([], { closestResult: {} }),
 )
 assert.equal(maskEnv.ctx.layout.toggles, 0, 'mask swipes should be ignored')
+assert.equal(maskEnv.ctx.sidebarRight.toggles, 0)
 
 // A missing on-screen Session must not throw out of the handler.
 const noSession = createEnvironment()
 noSession.ctx.sidebarRight.throwOnToggle = true
-swipe(noSession, { x: 40, y: 600 }, { x: 200, y: 600 })
+swipe(noSession, { ...RIGHT_EDGE, y: 600 }, { x: 250, y: 600 })
 assert.equal(noSession.ctx.sidebarRight.toggles, 0)
 
 // Tablets/laptops at or above 1024px keep pointer behavior only.
 const wide = createEnvironment({ width: 1280 })
-swipe(wide, { x: 40, y: 600 }, { x: 240, y: 600 })
+swipe(wide, { x: 1250, y: 600 }, { x: 1100, y: 600 })
 assert.equal(wide.ctx.sidebarRight.toggles, 0, 'wide viewports should be ignored')
 
 // Disposal removes every listener.
