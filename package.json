@@ -1,0 +1,50 @@
+{
+  "name": "dsh-plugin-swipe-nav",
+  "version": "0.1.0",
+  "description": "Swipe navigation for the DeepSeek Harness Web GUI: swipe right to open the navigation drawer and left to close it on phones and tablets.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.0-rc.1 <0.3.0-0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xffxff/dsh-swipe-nav.git"
+  },
+  "homepage": "https://github.com/xffxff/dsh-swipe-nav#readme",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "client-plugin",
+    "swipe",
+    "mobile"
+  ],
+  "license": "MIT"
+}
