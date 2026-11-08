@@ -121,14 +121,32 @@ const env = createEnvironment()
 assert.equal(env.row.id, 'dsh-plugin-swipe-nav')
 assert.ok(Array.isArray(env.ctx.disposers))
 
-// Right swipe on the chat opens the tools column.
-swipe(env, { x: 40, y: 600 }, { x: 200, y: 610 })
+// Right swipe from the middle opens the tools column.
+swipe(env, { x: 120, y: 600 }, { x: 280, y: 610 })
 assert.equal(env.ctx.sidebarRight.toggles, 1, 'swipe right should open the right sidebar')
 assert.equal(env.ctx.sidebarRight.expanded, true)
+assert.equal(env.ctx.layout.toggles, 0)
 
 // Right swipe while it is open does nothing.
-swipe(env, { x: 40, y: 600 }, { x: 200, y: 610 })
+swipe(env, { x: 120, y: 600 }, { x: 280, y: 610 })
 assert.equal(env.ctx.sidebarRight.toggles, 1, 'swipe right while open should be ignored')
+
+// Right swipe from the left edge opens the navigation drawer instead.
+const edge = createEnvironment()
+swipe(edge, { x: 10, y: 600 }, { x: 200, y: 600 })
+assert.equal(edge.ctx.layout.toggles, 1, 'edge swipe right should open the nav drawer')
+assert.equal(edge.ctx.sidebarRight.toggles, 0)
+
+// An edge swipe does nothing while the nav drawer is already open.
+const edgeOpen = createEnvironment({ drawerCollapsed: false })
+swipe(edgeOpen, { x: 10, y: 600 }, { x: 200, y: 600 })
+assert.equal(edgeOpen.ctx.layout.toggles, 0, 'edge swipe with the drawer open should be ignored')
+
+// An edge swipe does not stack on top of the open tools column.
+const edgeTools = createEnvironment()
+edgeTools.ctx.sidebarRight.expanded = true
+swipe(edgeTools, { x: 10, y: 600 }, { x: 200, y: 600 })
+assert.equal(edgeTools.ctx.layout.toggles, 0, 'edge swipe with tools open should be ignored')
 
 // Left swipe closes it.
 swipe(env, { x: 260, y: 600 }, { x: 100, y: 605 })

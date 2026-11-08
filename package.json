@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-swipe-nav",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Swipe navigation for the DeepSeek Harness Web GUI: swipe right to open the tools column and left to return to the chat on phones and tablets.",
   "type": "module",
   "main": "lib/index.js",

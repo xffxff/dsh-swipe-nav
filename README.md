@@ -2,7 +2,9 @@
 
 Swipe navigation for the DeepSeek Harness (dsh) Web GUI on phones and tablets.
 
-- **Swipe right** on the chat → open the right sidebar (the tools column). On a
+- **Swipe right starting near the left edge** (first 44 px) → open the left
+  navigation drawer (session list).
+- **Swipe right anywhere else** → open the right sidebar (the tools column). On a
   phone it opens fullscreen over the conversation, showing its “开始” guide with
   工作区文件 / 新建终端 / 更多工具 when no tab is open.
 - **Swipe left** → close it and return to the chat. When the left navigation
@@ -71,11 +73,12 @@ and no `prepare` script. It is hand-written in the same
 
 ## Notes
 
-- iOS Safari treats a swipe that starts at the very left edge as its own back
-  gesture, and a page cannot reliably cancel that. Start the swipe slightly
-  away from the edge.
-- Flipping the mapping is one line in `lib/client.js` (`dx > 0` / `dx < 0` in
-  `onTouchEnd`); the distance and timing thresholds sit at the top of the file.
+- iOS Safari treats a swipe that starts in the first ~20 px as its own back
+  gesture, and a page cannot cancel that. The edge band is therefore 44 px wide:
+  start around 25–40 px to reach the navigation drawer reliably on an iPhone.
+- The edge band, distances, and timing thresholds sit at the top of
+  `lib/client.js` (`EDGE_START_MAX`, `MIN_HORIZONTAL`, `MAX_VERTICAL`,
+  `MAX_DURATION_MS`); the direction mapping is in `onTouchEnd`.
 
 ## Test
 
