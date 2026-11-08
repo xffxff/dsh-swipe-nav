@@ -1,0 +1,4 @@
+# Adds the swipe-navigation Loader row to the profile this bundle is enabled in.
+- insert:
+    - id: swipe-nav
+      name: 'dsh-plugin-swipe-nav'

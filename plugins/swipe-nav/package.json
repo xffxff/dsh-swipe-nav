@@ -1,0 +1,24 @@
+{
+  "name": "dsh-plugin-swipe-nav",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Swipe right to open and swipe left to close the Web GUI navigation drawer on narrow (phone/tablet) screens.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "immediately": true
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT"
+}
