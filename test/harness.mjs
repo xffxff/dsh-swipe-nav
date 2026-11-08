@@ -26,15 +26,14 @@ class FakeEl {
   }
 }
 
-function createEnvironment({ width = 390, drawer = true, collapsed = true } = {}) {
+function createEnvironment({ width = 390, drawer = true, drawerCollapsed = true } = {}) {
   const listeners = new Map()
-  const calls = { toggle: 0 }
   const frameAttrs = []
   if (drawer) frameAttrs.push('data-sidebar-drawer')
-  if (collapsed) frameAttrs.push('data-sidebar-collapsed')
+  if (drawerCollapsed) frameAttrs.push('data-sidebar-collapsed')
   const frame = new FakeEl(frameAttrs)
   const mask = drawer ? new FakeEl(['data-sidebar-mask'], { parent: frame }) : null
-  const collapsedEl = collapsed && !drawer ? frame : null
+  const collapsedEl = drawerCollapsed && !drawer ? frame : null
 
   const document = {
     addEventListener(type, fn) {
@@ -63,20 +62,31 @@ function createEnvironment({ width = 390, drawer = true, collapsed = true } = {}
     },
   }
 
-  const context = vm.createContext({
-    window,
-    document,
-    Date,
-    console,
-  })
+  const context = vm.createContext({ window, document, Date, console })
   vm.runInContext(source, context)
 
-  const ctx = {
-    layout: {
-      toggleSidebar() {
-        calls.toggle += 1
-      },
+  const sidebarRight = {
+    expanded: false,
+    toggles: 0,
+    throwOnToggle: false,
+    isExpanded() {
+      return this.expanded
     },
+    toggleExpanded() {
+      if (this.throwOnToggle) throw new Error('no on-screen session')
+      this.toggles += 1
+      this.expanded = !this.expanded
+    },
+  }
+  const layout = {
+    toggles: 0,
+    toggleSidebar() {
+      this.toggles += 1
+    },
+  }
+  const ctx = {
+    layout,
+    sidebarRight,
     disposers: [],
     on(event, fn) {
       if (event === 'dispose') this.disposers.push(fn)
@@ -98,11 +108,11 @@ function createEnvironment({ width = 390, drawer = true, collapsed = true } = {}
     }
   }
 
-  return { row, ctx, calls, fire, listeners, frame }
+  return { row, ctx, listeners, fire }
 }
 
-function swipe(env, from, to) {
-  env.fire('touchstart', from, null)
+function swipe(env, from, to, target) {
+  env.fire('touchstart', from, null, target)
   env.fire('touchend', null, to)
 }
 
@@ -111,40 +121,70 @@ const env = createEnvironment()
 assert.equal(env.row.id, 'dsh-plugin-swipe-nav')
 assert.ok(Array.isArray(env.ctx.disposers))
 
-// Closed drawer: swipe right opens it.
+// Right swipe on the chat opens the tools column.
 swipe(env, { x: 40, y: 600 }, { x: 200, y: 610 })
-assert.equal(env.calls.toggle, 1, 'swipe right on a closed drawer should open it')
+assert.equal(env.ctx.sidebarRight.toggles, 1, 'swipe right should open the right sidebar')
+assert.equal(env.ctx.sidebarRight.expanded, true)
 
-// Open drawer (frame without the collapsed mark): swipe left closes it.
-const openEnv = createEnvironment({ collapsed: false })
-swipe(openEnv, { x: 260, y: 600 }, { x: 100, y: 605 })
-assert.equal(openEnv.calls.toggle, 1, 'swipe left on an open drawer should close it')
+// Right swipe while it is open does nothing.
+swipe(env, { x: 40, y: 600 }, { x: 200, y: 610 })
+assert.equal(env.ctx.sidebarRight.toggles, 1, 'swipe right while open should be ignored')
 
-// Wrong direction does nothing.
-const wrong = createEnvironment({ collapsed: false })
-swipe(wrong, { x: 100, y: 600 }, { x: 260, y: 600 })
-assert.equal(wrong.calls.toggle, 0, 'swipe right on an open drawer should be ignored')
+// Left swipe closes it.
+swipe(env, { x: 260, y: 600 }, { x: 100, y: 605 })
+assert.equal(env.ctx.sidebarRight.toggles, 2, 'swipe left should close the right sidebar')
+assert.equal(env.ctx.sidebarRight.expanded, false)
+
+// Left swipe with everything closed does nothing.
+swipe(env, { x: 260, y: 600 }, { x: 100, y: 605 })
+assert.equal(env.ctx.sidebarRight.toggles, 2)
+assert.equal(env.ctx.layout.toggles, 0)
+
+// Left swipe also closes the left navigation drawer when that is what is open.
+const drawerEnv = createEnvironment({ drawerCollapsed: false })
+swipe(drawerEnv, { x: 260, y: 600 }, { x: 100, y: 605 })
+assert.equal(drawerEnv.ctx.layout.toggles, 1, 'swipe left should close an open nav drawer')
 
 // Vertical scroll is not a swipe.
 const vertical = createEnvironment()
 swipe(vertical, { x: 200, y: 500 }, { x: 230, y: 650 })
-assert.equal(vertical.calls.toggle, 0, 'vertical scroll should be ignored')
+assert.equal(vertical.ctx.sidebarRight.toggles, 0, 'vertical scroll should be ignored')
 
 // Short drags are not swipes.
 const short = createEnvironment()
 swipe(short, { x: 200, y: 500 }, { x: 230, y: 500 })
-assert.equal(short.calls.toggle, 0, 'short drags should be ignored')
+assert.equal(short.ctx.sidebarRight.toggles, 0, 'short drags should be ignored')
 
 // Text fields keep their own gestures (cursor movement, selection).
 const textField = createEnvironment()
-textField.fire('touchstart', { x: 40, y: 600 }, null, new FakeEl([], { closestResult: {} }))
-textField.fire('touchend', null, { x: 220, y: 600 })
-assert.equal(textField.calls.toggle, 0, 'text field swipes should be ignored')
+swipe(
+  textField,
+  { x: 40, y: 600 },
+  { x: 220, y: 600 },
+  new FakeEl([], { closestResult: {} }),
+)
+assert.equal(textField.ctx.sidebarRight.toggles, 0, 'text field swipes should be ignored')
+
+// Swipes starting on the drawer mask are left to the mask's own tap handling.
+const maskEnv = createEnvironment({ drawerCollapsed: false })
+swipe(
+  maskEnv,
+  { x: 300, y: 600 },
+  { x: 120, y: 600 },
+  new FakeEl([], { closestResult: {} }),
+)
+assert.equal(maskEnv.ctx.layout.toggles, 0, 'mask swipes should be ignored')
+
+// A missing on-screen Session must not throw out of the handler.
+const noSession = createEnvironment()
+noSession.ctx.sidebarRight.throwOnToggle = true
+swipe(noSession, { x: 40, y: 600 }, { x: 200, y: 600 })
+assert.equal(noSession.ctx.sidebarRight.toggles, 0)
 
 // Tablets/laptops at or above 1024px keep pointer behavior only.
 const wide = createEnvironment({ width: 1280 })
 swipe(wide, { x: 40, y: 600 }, { x: 240, y: 600 })
-assert.equal(wide.calls.toggle, 0, 'wide viewports should be ignored')
+assert.equal(wide.ctx.sidebarRight.toggles, 0, 'wide viewports should be ignored')
 
 // Disposal removes every listener.
 const disposed = createEnvironment()

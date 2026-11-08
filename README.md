@@ -2,9 +2,11 @@
 
 Swipe navigation for the DeepSeek Harness (dsh) Web GUI on phones and tablets.
 
-- **Swipe right** on a page → open the navigation drawer (or expand the collapsed
-  sidebar between 768 px and 1024 px).
-- **Swipe left** → close it again.
+- **Swipe right** on the chat → open the right sidebar (the tools column). On a
+  phone it opens fullscreen over the conversation, showing its “开始” guide with
+  工作区文件 / 新建终端 / 更多工具 when no tab is open.
+- **Swipe left** → close it and return to the chat. When the left navigation
+  drawer is what is open instead, the same swipe closes that.
 
 The gesture only reacts below 1024 px viewport width, ignores text fields,
 horizontally scrolling blocks (code, tables), vertical scrolls, short taps, and
@@ -21,7 +23,7 @@ it).
 # from GitHub (git + pnpm required)
 dsh plugin --profile web add github:xffxff/dsh-swipe-nav
 
-# without git: GitHub tag archive
+# without git: GitHub archive
 dsh plugin --profile web add https://github.com/xffxff/dsh-swipe-nav/archive/refs/heads/main.tar.gz
 
 # from a local checkout
@@ -53,18 +55,19 @@ dsh plugin --profile web remove dsh-plugin-swipe-nav
 | `package.json` | npm name `dsh-plugin-swipe-nav`, `dsh.bundle.patch` and `dsh.client` declarations, `engines.dsh`. |
 | `cordis.patch.yml` | Bundle patch that inserts the `swipe-nav` Loader row. |
 | `lib/index.js` | Host (Node) half: an empty Cordis plugin so the package has a Loader row. |
-| `lib/client.js` | Browser half: registers with `window.__ModuleLoader__`, injects `layout`, listens to touch events, calls `ctx.layout.toggleSidebar()`. |
+| `lib/client.js` | Browser half: registers with `window.__ModuleLoader__`, injects `sidebarRight` and `layout`, listens to touch events. |
 | `test/harness.mjs` | Offline fake-DOM test of the gesture rules. |
+
+It uses only public services: `ctx.sidebarRight.isExpanded()` /
+`ctx.sidebarRight.toggleExpanded()` for the tools column (the same controller the
+header button drives), and `ctx.layout.toggleSidebar()` for the navigation
+drawer. The drawer's open state comes from the layout frame element, which marks
+itself with `data-sidebar-drawer` / `data-sidebar-collapsed` plus a
+`data-sidebar-mask` child in drawer mode.
 
 The browser bundle is committed, so installing from GitHub needs no build step
 and no `prepare` script. It is hand-written in the same
 `window.__ModuleLoader__.load(...)` format the dsh build preset emits.
-
-It uses only the public `ctx.layout` service (the same `toggleSidebar()` the
-header button uses). Open/closed state comes from the layout plugin's frame
-element, which marks itself with `data-sidebar-drawer` (drawer mode) and
-`data-sidebar-collapsed` (closed), plus a `data-sidebar-mask` child in drawer
-mode.
 
 ## Notes
 
